@@ -31,6 +31,7 @@ G_DECLARE_FINAL_TYPE(LimitFileEnum, limit_file_enum, LimitFileEnum, LIMIT_FILE_E
 
 
 const char*             limit_get_root_uri              ();
+const char*             limit_get_root_path             ();
 void                    limit_file_register             ();
 void                    limit_set_root_dir              (const char* rootDir, gint32 pathLen);
 

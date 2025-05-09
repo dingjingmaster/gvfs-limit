@@ -105,6 +105,11 @@ const char* limit_get_root_uri()
     return LIMIT_STR":///";
 }
 
+const char * limit_get_root_path()
+{
+    return gRootDir;
+}
+
 void limit_file_register()
 {
     static gsize init = 0;
@@ -121,6 +126,9 @@ void limit_set_root_dir(const char * rootDir, gint32 pathLen)
 
     memset(gRootDir, 0, sizeof (gRootDir));
     memcpy(gRootDir, rootDir, pathLen);
+    if ('/' != gRootDir[pathLen]) {
+        gRootDir[pathLen] = '/';
+    }
 }
 
 static void limit_file_init (LimitFile* self)
@@ -348,24 +356,33 @@ static GFile* vfs_resolve_relative_path (GFile* file, const char* relativePath)
 {
     g_return_val_if_fail (LIMIT_IS_FILE(file), NULL);
 
-    char* pp1 = NULL;
-    char** strArr = NULL;
     GFile* resFile = NULL;
     char* path = g_file_get_path (file);
 
-    if (0 == g_strcmp0(path, "") || 0 == g_strcmp0(path, "/")) {
-        strArr = g_strsplit(relativePath, "{]", -1);
-        if (strArr) {
-            pp1 = g_strjoinv("/", strArr);
-            if (pp1) {
-                resFile = limit_file_new_for_path(pp1);
-            }
+    g_print("===> path: %s, relative path: %s\n", path, relativePath);
+
+#define D(base, real, gf) G_STMT_START { \
+    char* p1 = g_strdup_printf("%s:///%s", base, real); \
+    if (p1) { \
+        gf = g_file_new_for_uri(p1); \
+        g_free(p1); \
+    } \
+} G_STMT_END
+
+    if (0 == g_strcmp0(path, "/")) {
+        D(LIMIT_STR, relativePath, resFile);
+    }
+    else if (g_str_has_prefix(path, gRootDir)) {
+        char* p1 = g_strdup_printf("/%s/%s", path + strlen(gRootDir) - 1, relativePath);
+        if (p1) {
+            file_path_format(p1);
+            resFile = limit_file_new_for_path(p1);
+            g_free(p1);
         }
     }
 
-    STR_FREE(pp1);
-    STR_FREE(path);
-    NOT_NULL_RUN(strArr, g_strfreev);
+    NOT_NULL_RUN(path, g_free);
+#undef D
 
     return resFile;
 }
@@ -383,7 +400,9 @@ static GFile* vfs_get_parent (GFile* file)
 {
     g_return_val_if_fail (LIMIT_IS_FILE(file), NULL);
 
-    GFile* f = limit_file_new_for_path("/");
+    g_print("===>parent: %s\n", g_file_get_uri(file));
+
+    GFile* f = limit_file_new_for_uri("/");
     return f;
     (void) file;
 }
